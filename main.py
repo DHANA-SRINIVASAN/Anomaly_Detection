@@ -7,7 +7,13 @@ import numpy as np
 from pyvis.network import Network
 import streamlit.components.v1 as components
 from sklearn.manifold import TSNE
-import umap.umap_ as umap  
+try:
+    import umap.umap_ as umap
+    UMAP_AVAILABLE = True
+except ImportError as e:
+    print(f"UMAP import failed: {e}")
+    print("UMAP will not be available as a projection method.")
+    UMAP_AVAILABLE = False
 from fuzzywuzzy import process
 import matplotlib.pyplot as plt
 import praw
@@ -112,11 +118,20 @@ anomaly_df = anomaly_df.sort_values(by="score", ascending=False)
 embeddings_np = node_embeddings.numpy()
 embedding_df = pd.DataFrame(embeddings_np, index=list(G.nodes()))
 
-projection_method = st.sidebar.radio("Embedding Projection", ["TSNE", "UMAP"])
+# Set up projection method options based on availability
+projection_options = ["TSNE"]
+if UMAP_AVAILABLE:
+    projection_options.append("UMAP")
+
+projection_method = st.sidebar.radio("Embedding Projection", projection_options)
 if projection_method == "TSNE":
     reducer = TSNE(n_components=2, random_state=42)
-else:
+elif projection_method == "UMAP" and UMAP_AVAILABLE:
     reducer = umap.UMAP(n_components=2, random_state=42)
+else:
+    # Fallback to TSNE if UMAP is selected but not available
+    reducer = TSNE(n_components=2, random_state=42)
+    st.warning("UMAP not available, using TSNE instead.")
 
 projection = reducer.fit_transform(embeddings_np)
 proj_df = pd.DataFrame(projection, columns=["x", "y"])
